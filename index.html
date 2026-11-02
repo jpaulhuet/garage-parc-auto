@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GARAGE PARC AUTO</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #101b2c;
+  color: white;
+  margin: 0;
+  padding: 20px;
+}
+h1 { color: #68b7ff; }
+section {
+  background: #203650;
+  padding: 18px;
+  margin: 15px 0;
+  border-radius: 12px;
+}
+input,button {
+  padding: 12px;
+  margin: 6px 0;
+  border-radius: 7px;
+  border: 0;
+  box-sizing: border-box;
+}
+input { width: 100%; }
+button {
+  background: #2187ee;
+  color: white;
+  cursor: pointer;
+}
+.vehicle {
+  background: #304964;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+}
+.warning { color: #ffd166; }
+.danger { color: #ff7070; }
+.success { color: #75e6a4; }
+.tv #gestion { display: none; }
+.tv { font-size: 22px; }
+</style>
+</head>
+<body>
+<h1>GARAGE PARC AUTO</h1>
+<p>Suivi des révisions et contrôles techniques</p>
+
+<button onclick="modeTV()">Mode TV / Gestion</button>
+
+<section id="gestion">
+<h2>Ajouter un véhicule</h2>
+<form id="formulaire">
+<input name="plaque" placeholder="Immatriculation" required>
+<input name="modele" placeholder="Marque et modèle" required>
+<input name="service" placeholder="Service d'appartenance" required>
+<label>Kilométrage actuel</label>
+<input name="km" type="number" min="0" required>
+<label>Date de dernière révision</label>
+<input name="derniere" type="date">
+<label>Kilométrage dernière révision</label>
+<input name="dernierKm" type="number" min="0" required>
+<label>Intervalle révision en km</label>
+<input name="intervalle" type="number" min="1" value="15000" required>
+<label>Prochaine révision</label>
+<input name="revision" type="date" required>
+<label>Prochain contrôle technique</label>
+<input name="ct" type="date" required>
+<button type="submit">Enregistrer le véhicule</button>
+</form>
+</section>
+
+<section>
+<h2>Tableau de bord atelier</h2>
+<div id="liste"></div>
+</section>
+
+<script>
+const cle="garage_parc_auto_v1";
+const exemple=[{
+plaque:"GD-832-ZD",
+modele:"ZOE ÉLECTRIQUE",
+service:"ÉCLAIRAGE PUBLIC",
+km:34000,
+derniere:"2025-11-30",
+dernierKm:29500,
+intervalle:15000,
+revision:"2026-11-27",
+ct:"2026-11-30"
+}];
+
+let voitures=JSON.parse(localStorage.getItem(cle)||"null");
+if(voitures===null) voitures=exemple;
+
+function sauvegarder(){
+  localStorage.setItem(cle,JSON.stringify(voitures));
+}
+
+function jours(date){
+  if(!date)return null;
+  const [a,m,j]=date.split("-").map(Number);
+  const n=new Date();
+  const debut=Date.UTC(n.getFullYear(),n.getMonth(),n.getDate());
+  return Math.round((Date.UTC(a,m-1,j)-debut)/86400000);
+}
+
+function alerte(date){
+  const j=jours(date);
+  if(j===null)return ["Non renseigné","warning"];
+  if(j<0)return ["EN RETARD","danger"];
+  if(j<=15)return ["URGENT","danger"];
+  if(j<=30)return ["À PRÉVOIR","warning"];
+  return ["À JOUR","success"];
+}
+
+function afficher(){
+  const liste=document.getElementById("liste");
+  liste.replaceChildren();
+  voitures.forEach((v,i)=>{
+    const prochaine=Number(v.dernierKm)+Number(v.intervalle);
+    const reste=prochaine-Number(v.km);
+    const rev=alerte(v.revision);
+    const ct=alerte(v.ct);
+    const carte=document.createElement("div");
+    carte.className="vehicle";
+
+    function ligne(texte,classe=""){
+      const p=document.createElement("p");
+      p.textContent=texte;
+      p.className=classe;
+      carte.appendChild(p);
+    }
+
+    const titre=document.createElement("h2");
+    titre.textContent=v.plaque;
+    carte.appendChild(titre);
+    ligne(v.modele);
+    ligne("SERVICE : "+v.service);
+    ligne("Compteur : "+v.km+" km");
+    ligne("Révision : "+v.revision+" — "+rev[0],rev[1]);
+    ligne("Contrôle technique : "+v.ct+" — "+ct[0],ct[1]);
+    ligne("Prochaine révision à : "+prochaine+" km");
+    ligne(reste<=0
+      ? "Seuil dépassé de "+Math.abs(reste)+" km"
+      : reste+" km restants",
+      reste<=0?"danger":reste<=1000?"warning":"success");
+
+    if(!document.body.classList.contains("tv")){
+      const bouton=document.createElement("button");
+      bouton.textContent="Supprimer";
+      bouton.onclick=()=>{
+        if(confirm("Supprimer ce véhicule ?")){
+          voitures.splice(i,1);
+          sauvegarder();
+          afficher();
+        }
+      };
+      carte.appendChild(bouton);
+    }
+    liste.appendChild(carte);
+  });
+}
+
+document.getElementById("formulaire").onsubmit=e=>{
+  e.preventDefault();
+  const v=Object.fromEntries(new FormData(e.target).entries());
+  v.plaque=v.plaque.trim().toUpperCase();
+  if(Number(v.dernierKm)>Number(v.km)){
+    alert("Vérifiez le kilométrage de la dernière révision.");
+    return;
+  }
+  if(voitures.some(x=>x.plaque===v.plaque)){
+    alert("Cette immatriculation existe déjà.");
+    return;
+  }
+  voitures.push(v);
+  sauvegarder();
+  e.target.reset();
+  afficher();
+};
+
+function modeTV(){
+  document.body.classList.toggle("tv");
+  afficher();
+}
+if(new URLSearchParams(location.search).has("tv")){
+  document.body.classList.add("tv");
+}
+sauvegarder();
+afficher();
+setInterval(afficher,60000);
+</script>
+</body>
+</html>
