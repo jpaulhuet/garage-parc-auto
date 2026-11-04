@@ -85,6 +85,9 @@ button {
 </section>
 
 <script>
+  const SUPABASE_URL = "COLLER_ICI_URL_DU_PROJET";
+const SUPABASE_KEY = "COLLER_ICI_CLE_PUBLIQUE";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const cle="garage_parc_auto_v1";
 const exemple=[{
 plaque:"GD-832-ZD",
