@@ -59,6 +59,20 @@ button {
 <p>Suivi des révisions et contrôles techniques</p>
 
 <button onclick="modeTV()">Mode TV / Gestion</button>
+<section id="reinitialisation" hidden>
+  <h2>Choisir un nouveau mot de passe</h2>
+  <form id="formulaireReinitialisation">
+    <input
+      type="password"
+      id="nouveauMotDePasse"
+      placeholder="Nouveau mot de passe"
+      minlength="8"
+      required
+    >
+    <button type="submit">Enregistrer le nouveau mot de passe</button>
+  </form>
+  <p id="messageReinitialisation"></p>
+</section>
 <section id="connexion">
   <h2>Connexion GARAGE PARC AUTO</h2>
 
@@ -110,6 +124,26 @@ button {
   const SUPABASE_URL = "https://crqzckzfqpyeelzlsvnr.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ZArF4GZPAzsEvm9NhCFOqw_Nc7W7K_k";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  document.getElementById("formulaireReinitialisation").onsubmit = async (e) => {
+  e.preventDefault();
+
+  const nouveauMotDePasse =
+    document.getElementById("nouveauMotDePasse").value;
+
+  const message =
+    document.getElementById("messageReinitialisation");
+
+  const { error } = await db.auth.updateUser({
+    password: nouveauMotDePasse
+  });
+
+  if (error) {
+    message.textContent = "Erreur : " + error.message;
+  } else {
+    message.textContent = "Mot de passe modifié avec succès !";
+    document.getElementById("nouveauMotDePasse").value = "";
+  }
+};
  document.getElementById("formulaireConnexion").onsubmit = async (e) => {
   e.preventDefault();
 
@@ -132,7 +166,18 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     document.getElementById("motDePasseConnexion").value = "";
   }
 };
+ db.auth.onAuthStateChange((event) => {
+  if (event === "PASSWORD_RECOVERY") {
+    document.getElementById("reinitialisation").hidden = false;
+    document.getElementById("connexion").hidden = true;
+    document.getElementById("gestion").hidden = true;
+    document.getElementById("tableauDeBord").hidden = true;
+  }
+}); 
 async function verifierConnexion() {
+if (!document.getElementById("reinitialisation").hidden) {
+  return;
+} 
   const { data, error } = await db.auth.getUser();
   const connecte = !error && !!data.user;
 
