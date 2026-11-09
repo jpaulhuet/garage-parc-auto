@@ -77,7 +77,7 @@ button {
 
   <p id="messageConnexion"></p>
 </section>
-<section id="gestion">
+<section id="gestion" hidden>
 <h2>Ajouter un véhicule</h2>
 <form id="formulaire">
 <input name="plaque" placeholder="Immatriculation" required>
@@ -99,7 +99,7 @@ button {
 </form>
 </section>
 
-<section>
+<section id="tableauDeBord" hidden>
 <h2>Tableau de bord atelier</h2>
 <div id="liste"></div>
 </section>
@@ -125,9 +125,22 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     message.textContent = "Connexion impossible. Vérifiez vos identifiants.";
   } else {
     message.textContent = "Connexion réussie !";
+  await verifierConnexion();  
     document.getElementById("motDePasseConnexion").value = "";
   }
-}; 
+};
+async function verifierConnexion() {
+  const { data, error } = await db.auth.getUser();
+  const connecte = !error && !!data.user;
+
+  document.getElementById("connexion").hidden = connecte;
+  document.getElementById("gestion").hidden = !connecte;
+  document.getElementById("tableauDeBord").hidden = !connecte;
+
+  if (connecte) {
+    afficher();
+  }
+}  
 const cle="garage_parc_auto_v1";
 const exemple=[{
 plaque:"GD-832-ZD",
@@ -238,9 +251,14 @@ function modeTV(){
 if(new URLSearchParams(location.search).has("tv")){
   document.body.classList.add("tv");
 }
+verifierConnexion();  
 sauvegarder();
-afficher();
-setInterval(afficher,60000);
+// L'affichage des véhicules sera activé après vérification de la connexion.
+setInterval(() => {
+  if (!document.getElementById("tableauDeBord").hidden) {
+    afficher();
+  }
+}, 60000);
 </script>
   
 <script>
