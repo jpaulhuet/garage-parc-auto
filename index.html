@@ -5,7 +5,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GARAGE PARC AUTO</title>
-  
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101b2c">
 
@@ -24,7 +23,7 @@ section {
   margin: 15px 0;
   border-radius: 12px;
 }
-input,button {
+input, button {
   padding: 12px;
   margin: 6px 0;
   border-radius: 7px;
@@ -37,6 +36,11 @@ button {
   color: white;
   cursor: pointer;
 }
+button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+label { display: block; margin-top: 8px; }
 .vehicle {
   background: #304964;
   padding: 15px;
@@ -46,19 +50,23 @@ button {
 .warning { color: #ffd166; }
 .danger { color: #ff7070; }
 .success { color: #75e6a4; }
-[hidden] {
-  display: none !important;
-}  
-.tv #gestion { display: none; }
+[hidden] { display: none !important; }
+.tv #gestion,
+.tv #deconnexion { display: none !important; }
 .tv { font-size: 22px; }
+#messageTableau { color: #ffd166; }
 </style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
+
 <body>
 <h1>GARAGE PARC AUTO</h1>
 <p>Suivi des révisions et contrôles techniques</p>
 
-<button onclick="modeTV()">Mode TV / Gestion</button>
+<button type="button" onclick="modeTV()">Mode TV / Gestion</button>
+<button type="button" id="deconnexion" hidden>Se déconnecter</button>
+
 <section id="reinitialisation" hidden>
   <h2>Choisir un nouveau mot de passe</h2>
   <form id="formulaireReinitialisation">
@@ -73,258 +81,475 @@ button {
   </form>
   <p id="messageReinitialisation"></p>
 </section>
+
 <section id="connexion">
   <h2>Connexion GARAGE PARC AUTO</h2>
-
   <form id="formulaireConnexion">
-    <input id="emailConnexion"
-           type="email"
-           placeholder="Adresse email"
-           autocomplete="username"
-           required>
-
-    <input id="motDePasseConnexion"
-           type="password"
-           placeholder="Mot de passe"
-           autocomplete="current-password"
-           required>
-
+    <input
+      id="emailConnexion"
+      type="email"
+      placeholder="Adresse email"
+      autocomplete="username"
+      required
+    >
+    <input
+      id="motDePasseConnexion"
+      type="password"
+      placeholder="Mot de passe"
+      autocomplete="current-password"
+      required
+    >
     <button type="submit">Se connecter</button>
   </form>
-
   <p id="messageConnexion"></p>
 </section>
+
 <section id="gestion" hidden>
-<h2>Ajouter un véhicule</h2>
-<form id="formulaire">
-<input name="plaque" placeholder="Immatriculation" required>
-<input name="modele" placeholder="Marque et modèle" required>
-<input name="service" placeholder="Service d'appartenance" required>
-<label>Kilométrage actuel</label>
-<input name="km" type="number" min="0" required>
-<label>Date de dernière révision</label>
-<input name="derniere" type="date">
-<label>Kilométrage dernière révision</label>
-<input name="dernierKm" type="number" min="0" required>
-<label>Intervalle révision en km</label>
-<input name="intervalle" type="number" min="1" value="15000" required>
-<label>Prochaine révision</label>
-<input name="revision" type="date" required>
-<label>Prochain contrôle technique</label>
-<input name="ct" type="date" required>
-<button type="submit">Enregistrer le véhicule</button>
-</form>
+  <h2>Ajouter un véhicule</h2>
+  <form id="formulaire">
+    <input name="plaque" placeholder="Immatriculation" required>
+    <input name="modele" placeholder="Marque et modèle" required>
+    <input name="service" placeholder="Service d'appartenance" required>
+
+    <label>Kilométrage actuel</label>
+    <input name="km" type="number" min="0" required>
+
+    <label>Date de dernière révision</label>
+    <input name="derniere" type="date">
+
+    <label>Kilométrage dernière révision</label>
+    <input name="dernierKm" type="number" min="0" required>
+
+    <label>Intervalle révision en km</label>
+    <input name="intervalle" type="number" min="1" value="15000" required>
+
+    <label>Prochaine révision</label>
+    <input name="revision" type="date" required>
+
+    <label>Prochain contrôle technique</label>
+    <input name="ct" type="date" required>
+
+    <button type="submit">Enregistrer le véhicule</button>
+  </form>
 </section>
 
 <section id="tableauDeBord" hidden>
-<h2>Tableau de bord atelier</h2>
-<div id="liste"></div>
+  <h2>Tableau de bord atelier</h2>
+  <p id="messageTableau"></p>
+  <div id="liste"></div>
 </section>
+
 <script>
-  const SUPABASE_URL = "https://crqzckzfqpyeelzlsvnr.supabase.co";
+const SUPABASE_URL =
+  "https://crqzckzfqpyeelzlsvnr.supabase.co";
+
+/*
+  REMPLACER LA VALEUR CI-DESSOUS PAR VOTRE
+  CLÉ PUBLIQUE SUPABASE ACTUELLE.
+  Elle commence par sb_publishable_
+*/
 const SUPABASE_KEY = "sb_publishable_ZArF4GZPAzsEvm9NhCFOqw_Nc7W7K_k";
-const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  document.getElementById("formulaireReinitialisation").onsubmit = async (e) => {
-  e.preventDefault();
 
-  const nouveauMotDePasse =
-    document.getElementById("nouveauMotDePasse").value;
+const db = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
-  const message =
-    document.getElementById("messageReinitialisation");
+let voitures = [];
+let chargementEnCours = false;
 
-  const { error } = await db.auth.updateUser({
-    password: nouveauMotDePasse
-  });
+const connexion = document.getElementById("connexion");
+const gestion = document.getElementById("gestion");
+const tableauDeBord = document.getElementById("tableauDeBord");
+const reinitialisation = document.getElementById("reinitialisation");
+const deconnexion = document.getElementById("deconnexion");
+const messageTableau = document.getElementById("messageTableau");
 
-  if (error) {
-    message.textContent = "Erreur : " + error.message;
-  } else {
-    message.textContent = "Mot de passe modifié avec succès !";
-    document.getElementById("nouveauMotDePasse").value = "";
-  }
-};
- document.getElementById("formulaireConnexion").onsubmit = async (e) => {
-  e.preventDefault();
+function jours(date) {
+  if (!date) return null;
 
-  const email = document.getElementById("emailConnexion").value.trim();
-  const motDePasse = document.getElementById("motDePasseConnexion").value;
-  const message = document.getElementById("messageConnexion");
+  const [a, m, j] = date.split("-").map(Number);
+  const maintenant = new Date();
 
-  message.textContent = "Connexion en cours...";
+  const debut = Date.UTC(
+    maintenant.getFullYear(),
+    maintenant.getMonth(),
+    maintenant.getDate()
+  );
 
-  const { error } = await db.auth.signInWithPassword({
-    email: email,
-    password: motDePasse
-  });
+  return Math.round(
+    (Date.UTC(a, m - 1, j) - debut) / 86400000
+  );
+}
 
-  if (error) {
-    message.textContent = "Connexion impossible. Vérifiez vos identifiants.";
-  } else {
-    message.textContent = "Connexion réussie !";
-  await verifierConnexion();  
-    document.getElementById("motDePasseConnexion").value = "";
-  }
-};
- db.auth.onAuthStateChange((event) => {
-  if (event === "PASSWORD_RECOVERY") {
-    document.getElementById("reinitialisation").hidden = false;
-    document.getElementById("connexion").hidden = true;
-    document.getElementById("gestion").hidden = true;
-    document.getElementById("tableauDeBord").hidden = true;
-  }
-}); 
-async function verifierConnexion() {
-if (!document.getElementById("reinitialisation").hidden) {
-  return;
-} 
-  const { data, error } = await db.auth.getUser();
-  const connecte = !error && !!data.user;
+function alerte(date) {
+  const j = jours(date);
 
-  document.getElementById("connexion").hidden = connecte;
-  document.getElementById("gestion").hidden = !connecte;
-  document.getElementById("tableauDeBord").hidden = !connecte;
+  if (j === null) return ["Non renseigné", "warning"];
+  if (j < 0) return ["EN RETARD", "danger"];
+  if (j <= 15) return ["URGENT", "danger"];
+  if (j <= 30) return ["À PRÉVOIR", "warning"];
 
-  if (connecte) {
+  return ["À JOUR", "success"];
+}
+
+function formatDate(date) {
+  if (!date) return "Non renseignée";
+  const [a, m, j] = date.split("-");
+  return `${j}/${m}/${a}`;
+}
+
+async function chargerVehiculesSupabase() {
+  if (chargementEnCours) return;
+
+  chargementEnCours = true;
+  messageTableau.textContent = "Chargement des véhicules...";
+
+  try {
+    const { data, error } = await db
+      .from("vehicules")
+      .select("*")
+      .order("id", { ascending: true });
+
+    if (error) throw error;
+
+    voitures = (data || []).map(v => ({
+      id: v.id,
+      plaque: v.immatriculation,
+      modele: v.modele,
+      service: v.service,
+      km: v.kilometrage_actuel,
+      derniere: v.date_derniere_revision,
+      dernierKm: v.kilometrage_derniere_revision,
+      intervalle: v.intervalle_revision_km,
+      revision: v.date_prochaine_revision,
+      ct: v.date_prochain_controle_technique
+    }));
+
+    messageTableau.textContent = "";
     afficher();
+
+  } catch (error) {
+    messageTableau.textContent =
+      "Impossible de charger les véhicules : " + error.message;
+  } finally {
+    chargementEnCours = false;
   }
-}  
-const cle="garage_parc_auto_v1";
-const exemple=[{
-plaque:"GD-832-ZD",
-modele:"ZOE ÉLECTRIQUE",
-service:"ÉCLAIRAGE PUBLIC",
-km:34000,
-derniere:"2025-11-30",
-dernierKm:29500,
-intervalle:15000,
-revision:"2026-11-27",
-ct:"2026-11-30"
-}];
-
-let voitures=JSON.parse(localStorage.getItem(cle)||"null");
-if(voitures===null) voitures=exemple;
-
-function sauvegarder(){
-  localStorage.setItem(cle,JSON.stringify(voitures));
 }
 
-function jours(date){
-  if(!date)return null;
-  const [a,m,j]=date.split("-").map(Number);
-  const n=new Date();
-  const debut=Date.UTC(n.getFullYear(),n.getMonth(),n.getDate());
-  return Math.round((Date.UTC(a,m-1,j)-debut)/86400000);
-}
-
-function alerte(date){
-  const j=jours(date);
-  if(j===null)return ["Non renseigné","warning"];
-  if(j<0)return ["EN RETARD","danger"];
-  if(j<=15)return ["URGENT","danger"];
-  if(j<=30)return ["À PRÉVOIR","warning"];
-  return ["À JOUR","success"];
-}
-
-function afficher(){
-  const liste=document.getElementById("liste");
+function afficher() {
+  const liste = document.getElementById("liste");
   liste.replaceChildren();
-  voitures.forEach((v,i)=>{
-    const prochaine=Number(v.dernierKm)+Number(v.intervalle);
-    const reste=prochaine-Number(v.km);
-    const rev=alerte(v.revision);
-    const ct=alerte(v.ct);
-    const carte=document.createElement("div");
-    carte.className="vehicle";
 
-    function ligne(texte,classe=""){
-      const p=document.createElement("p");
-      p.textContent=texte;
-      p.className=classe;
+  if (voitures.length === 0) {
+    const p = document.createElement("p");
+    p.textContent = "Aucun véhicule enregistré dans Supabase.";
+    liste.appendChild(p);
+    return;
+  }
+
+  voitures.forEach(v => {
+    const rev = alerte(v.revision);
+    const ct = alerte(v.ct);
+
+    const carte = document.createElement("div");
+    carte.className = "vehicle";
+
+    function ligne(texte, classe = "") {
+      const p = document.createElement("p");
+      p.textContent = texte;
+      p.className = classe;
       carte.appendChild(p);
     }
 
-    const titre=document.createElement("h2");
-    titre.textContent=v.plaque;
+    const titre = document.createElement("h2");
+    titre.textContent = v.plaque;
     carte.appendChild(titre);
-    ligne(v.modele);
-    ligne("SERVICE : "+v.service);
-    ligne("Compteur : "+v.km+" km");
-    ligne("Révision : "+v.revision+" — "+rev[0],rev[1]);
-    ligne("Contrôle technique : "+v.ct+" — "+ct[0],ct[1]);
-    ligne("Prochaine révision à : "+prochaine+" km");
-    ligne(reste<=0
-      ? "Seuil dépassé de "+Math.abs(reste)+" km"
-      : reste+" km restants",
-      reste<=0?"danger":reste<=1000?"warning":"success");
 
-    if(!document.body.classList.contains("tv")){
-      const bouton=document.createElement("button");
-      bouton.textContent="Supprimer";
-      bouton.onclick=()=>{
-        if(confirm("Supprimer ce véhicule ?")){
-          voitures.splice(i,1);
-          sauvegarder();
-          afficher();
+    ligne(v.modele || "Modèle non renseigné");
+    ligne("SERVICE : " + (v.service || "Non renseigné"));
+    ligne("Compteur : " + v.km + " km");
+
+    ligne(
+      "Révision : " + formatDate(v.revision) +
+      " — " + rev[0],
+      rev[1]
+    );
+
+    ligne(
+      "Contrôle technique : " + formatDate(v.ct) +
+      " — " + ct[0],
+      ct[1]
+    );
+
+    if (
+      v.dernierKm !== null &&
+      v.dernierKm !== undefined &&
+      v.intervalle !== null &&
+      v.intervalle !== undefined
+    ) {
+      const prochaine =
+        Number(v.dernierKm) + Number(v.intervalle);
+
+      const reste = prochaine - Number(v.km);
+
+      ligne("Prochaine révision à : " + prochaine + " km");
+
+      ligne(
+        reste <= 0
+          ? "Seuil dépassé de " + Math.abs(reste) + " km"
+          : reste + " km restants",
+        reste <= 0
+          ? "danger"
+          : reste <= 1000
+            ? "warning"
+            : "success"
+      );
+    } else {
+      ligne("Suivi kilométrique : non renseigné", "warning");
+    }
+
+    if (!document.body.classList.contains("tv")) {
+      const bouton = document.createElement("button");
+      bouton.type = "button";
+      bouton.textContent = "Supprimer définitivement";
+
+      bouton.onclick = async () => {
+        if (!confirm(
+          "ATTENTION : supprimer définitivement le véhicule " +
+          v.plaque +
+          " de Supabase ? Cette action est irréversible."
+        )) {
+          return;
+        }
+
+        bouton.disabled = true;
+        bouton.textContent = "Suppression en cours...";
+
+        try {
+          const { error } = await db.rpc(
+            "admin_supprimer_vehicule",
+            { p_id: v.id }
+          );
+
+          if (error) throw error;
+
+          await chargerVehiculesSupabase();
+
+          alert(
+            "Demande de suppression effectuée. " +
+            "Vérifiez que le véhicule a disparu du tableau."
+          );
+
+        } catch (error) {
+          alert(
+            "Suppression impossible : " + error.message
+          );
+        } finally {
+          bouton.disabled = false;
+          bouton.textContent = "Supprimer définitivement";
         }
       };
+
       carte.appendChild(bouton);
     }
+
     liste.appendChild(carte);
   });
 }
 
-document.getElementById("formulaire").onsubmit=async e=>{
-  e.preventDefault();
-  const v=Object.fromEntries(new FormData(e.target).entries());
-  v.plaque=v.plaque.trim().toUpperCase();
-  if(Number(v.dernierKm)>Number(v.km)){
-    alert("Vérifiez le kilométrage de la dernière révision.");
-    return;
-  }
-  if(voitures.some(x=>x.plaque===v.plaque)){
-    alert("Cette immatriculation existe déjà.");
-    return;
-  }
-  const { data, error } = await db.rpc("admin_ajouter_vehicule", {
-  p_immatriculation: v.plaque,
-  p_modele: v.modele,
-  p_service: v.service,
-  p_kilometrage_actuel: Number(v.km),
-  p_date_derniere_revision: v.derniere || null,
-  p_kilometrage_derniere_revision: v.dernierKm ? Number(v.dernierKm) : null,
-  p_intervalle_revision_km: v.intervalle ? Number(v.intervalle) : null,
-  p_date_prochaine_revision: v.revision || null,
-  p_date_prochain_controle_technique: v.ct || null
-});
+async function verifierConnexion() {
+  if (!reinitialisation.hidden) return;
 
-if (error) {
-  alert("Erreur Supabase : " + error.message);
-  return;
+  const { data, error } = await db.auth.getUser();
+  const connecte = !error && !!data.user;
+
+  connexion.hidden = connecte;
+  gestion.hidden = !connecte;
+  tableauDeBord.hidden = !connecte;
+  deconnexion.hidden = !connecte;
+
+  if (connecte) {
+    await chargerVehiculesSupabase();
+  } else {
+    voitures = [];
+    document.getElementById("liste").replaceChildren();
+  }
 }
-  voitures.push(v);
-  sauvegarder();
-  e.target.reset();
-  afficher();
+
+document.getElementById("formulaireConnexion").onsubmit =
+  async e => {
+    e.preventDefault();
+
+    const email =
+      document.getElementById("emailConnexion").value.trim();
+
+    const motDePasse =
+      document.getElementById("motDePasseConnexion").value;
+
+    const message =
+      document.getElementById("messageConnexion");
+
+    message.textContent = "Connexion en cours...";
+
+    const { error } = await db.auth.signInWithPassword({
+      email,
+      password: motDePasse
+    });
+
+    if (error) {
+      message.textContent =
+        "Connexion impossible. Vérifiez vos identifiants.";
+      return;
+    }
+
+    message.textContent = "Connexion réussie !";
+
+    document.getElementById(
+      "motDePasseConnexion"
+    ).value = "";
+
+    await verifierConnexion();
+  };
+
+deconnexion.onclick = async () => {
+  const { error } = await db.auth.signOut();
+
+  if (error) {
+    alert("Déconnexion impossible : " + error.message);
+    return;
+  }
+
+  voitures = [];
+  await verifierConnexion();
 };
 
-function modeTV(){
+document.getElementById("formulaireReinitialisation").onsubmit =
+  async e => {
+    e.preventDefault();
+
+    const nouveauMotDePasse =
+      document.getElementById("nouveauMotDePasse").value;
+
+    const message =
+      document.getElementById("messageReinitialisation");
+
+    const { error } = await db.auth.updateUser({
+      password: nouveauMotDePasse
+    });
+
+    if (error) {
+      message.textContent = "Erreur : " + error.message;
+      return;
+    }
+
+    message.textContent =
+      "Mot de passe modifié avec succès !";
+
+    document.getElementById(
+      "nouveauMotDePasse"
+    ).value = "";
+
+    reinitialisation.hidden = true;
+    await verifierConnexion();
+  };
+
+db.auth.onAuthStateChange(event => {
+  if (event === "PASSWORD_RECOVERY") {
+    reinitialisation.hidden = false;
+    connexion.hidden = true;
+    gestion.hidden = true;
+    tableauDeBord.hidden = true;
+    deconnexion.hidden = true;
+  }
+});
+
+document.getElementById("formulaire").onsubmit =
+  async e => {
+    e.preventDefault();
+
+    const formulaire = e.target;
+    const bouton = formulaire.querySelector(
+      'button[type="submit"]'
+    );
+
+    const v = Object.fromEntries(
+      new FormData(formulaire).entries()
+    );
+
+    v.plaque = v.plaque.trim().toUpperCase();
+
+    if (Number(v.dernierKm) > Number(v.km)) {
+      alert(
+        "Vérifiez le kilométrage de la dernière révision."
+      );
+      return;
+    }
+
+    if (voitures.some(
+      x => x.plaque.toUpperCase() === v.plaque
+    )) {
+      alert("Cette immatriculation existe déjà.");
+      return;
+    }
+
+    bouton.disabled = true;
+    bouton.textContent = "Enregistrement en cours...";
+
+    try {
+      const { error } = await db.rpc(
+        "admin_ajouter_vehicule",
+        {
+          p_immatriculation: v.plaque,
+          p_modele: v.modele,
+          p_service: v.service,
+          p_kilometrage_actuel: Number(v.km),
+          p_date_derniere_revision: v.derniere || null,
+          p_kilometrage_derniere_revision:
+            v.dernierKm ? Number(v.dernierKm) : null,
+          p_intervalle_revision_km:
+            v.intervalle ? Number(v.intervalle) : null,
+          p_date_prochaine_revision: v.revision || null,
+          p_date_prochain_controle_technique: v.ct || null
+        }
+      );
+
+      if (error) throw error;
+
+      formulaire.reset();
+
+      await chargerVehiculesSupabase();
+
+      alert("Véhicule enregistré dans Supabase !");
+
+    } catch (error) {
+      alert(
+        "Enregistrement impossible : " + error.message
+      );
+    } finally {
+      bouton.disabled = false;
+      bouton.textContent = "Enregistrer le véhicule";
+    }
+  };
+
+function modeTV() {
   document.body.classList.toggle("tv");
   afficher();
 }
-if(new URLSearchParams(location.search).has("tv")){
+
+if (new URLSearchParams(location.search).has("tv")) {
   document.body.classList.add("tv");
 }
-verifierConnexion();  
-sauvegarder();
-// L'affichage des véhicules sera activé après vérification de la connexion.
+
+verifierConnexion();
+
 setInterval(() => {
-  if (!document.getElementById("tableauDeBord").hidden) {
-    afficher();
+  if (!tableauDeBord.hidden) {
+    chargerVehiculesSupabase();
   }
 }, 60000);
 </script>
-  
+
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -334,6 +559,5 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-
 </body>
 </html>
