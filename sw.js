@@ -4,7 +4,7 @@ const CACHE = "garage-parc-auto-v1";
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE).then(cache =>
-      cache.addAll(["/", "/index.html"])
+      cache.addAll(["./", "./index.html"])
     )
   );
   self.skipWaiting();
@@ -46,5 +46,5 @@ self.addEventListener("push", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow("/"));
+  event.waitUntil(self.clients.openWindow(self.registration.scope));
 });
