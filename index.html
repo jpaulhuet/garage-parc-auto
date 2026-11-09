@@ -274,7 +274,7 @@ function afficher(){
   });
 }
 
-document.getElementById("formulaire").onsubmit=e=>{
+document.getElementById("formulaire").onsubmit=async e=>{
   e.preventDefault();
   const v=Object.fromEntries(new FormData(e.target).entries());
   v.plaque=v.plaque.trim().toUpperCase();
@@ -286,6 +286,22 @@ document.getElementById("formulaire").onsubmit=e=>{
     alert("Cette immatriculation existe déjà.");
     return;
   }
+  const { data, error } = await db.rpc("admin_ajouter_vehicule", {
+  p_immatriculation: v.plaque,
+  p_modele: v.modele,
+  p_service: v.service,
+  p_kilometrage_actuel: Number(v.km),
+  p_date_derniere_revision: v.derniere || null,
+  p_kilometrage_derniere_revision: v.dernierKm ? Number(v.dernierKm) : null,
+  p_intervalle_revision_km: v.intervalle ? Number(v.intervalle) : null,
+  p_date_prochaine_revision: v.revision || null,
+  p_date_prochain_controle_technique: v.ct || null
+});
+
+if (error) {
+  alert("Erreur Supabase : " + error.message);
+  return;
+}
   voitures.push(v);
   sauvegarder();
   e.target.reset();
