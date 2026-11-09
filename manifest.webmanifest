@@ -3,20 +3,20 @@
   "name": "GARAGE PARC AUTO",
   "short_name": "Garage Parc",
   "description": "Gestion des véhicules et entretiens",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#101b2c",
   "theme_color": "#101b2c",
   "lang": "fr",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
