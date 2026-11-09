@@ -56,7 +56,27 @@ button {
 <p>Suivi des révisions et contrôles techniques</p>
 
 <button onclick="modeTV()">Mode TV / Gestion</button>
+<section id="connexion">
+  <h2>Connexion GARAGE PARC AUTO</h2>
 
+  <form id="formulaireConnexion">
+    <input id="emailConnexion"
+           type="email"
+           placeholder="Adresse email"
+           autocomplete="username"
+           required>
+
+    <input id="motDePasseConnexion"
+           type="password"
+           placeholder="Mot de passe"
+           autocomplete="current-password"
+           required>
+
+    <button type="submit">Se connecter</button>
+  </form>
+
+  <p id="messageConnexion"></p>
+</section>
 <section id="gestion">
 <h2>Ajouter un véhicule</h2>
 <form id="formulaire">
