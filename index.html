@@ -107,6 +107,27 @@ button {
   const SUPABASE_URL = "https://crqzckzfqpyeelzlsvnr.supabase.co/rest/v1/";
 const SUPABASE_KEY = "sb_publishable_ZArF4GZPAzsEvm9NhCFOqw_Nc7W7K_k";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+ document.getElementById("formulaireConnexion").onsubmit = async (e) => {
+  e.preventDefault();
+
+  const email = document.getElementById("emailConnexion").value.trim();
+  const motDePasse = document.getElementById("motDePasseConnexion").value;
+  const message = document.getElementById("messageConnexion");
+
+  message.textContent = "Connexion en cours...";
+
+  const { error } = await db.auth.signInWithPassword({
+    email: email,
+    password: motDePasse
+  });
+
+  if (error) {
+    message.textContent = "Connexion impossible. Vérifiez vos identifiants.";
+  } else {
+    message.textContent = "Connexion réussie !";
+    document.getElementById("motDePasseConnexion").value = "";
+  }
+}; 
 const cle="garage_parc_auto_v1";
 const exemple=[{
 plaque:"GD-832-ZD",
