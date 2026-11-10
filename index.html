@@ -3,11 +3,10 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GARAGE PARC AUTO</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#101b2c">
-
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -36,10 +35,9 @@ button {
   color: white;
   cursor: pointer;
 }
-button:disabled {
-  opacity: .55;
-  cursor: wait;
-}
+button:disabled { opacity: .55; cursor: wait; }
+button.supprimer { background: #b73a45; }
+button.annuler { background: #64748b; }
 label { display: block; margin-top: 8px; }
 .vehicle {
   background: #304964;
@@ -52,15 +50,15 @@ label { display: block; margin-top: 8px; }
 .success { color: #75e6a4; }
 [hidden] { display: none !important; }
 .tv #gestion,
-.tv #deconnexion { display: none !important; }
+.tv #deconnexion,
+.tv .actions { display: none !important; }
 .tv { font-size: 22px; }
 #messageTableau { color: #ffd166; }
 </style>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
-
 <body>
+
 <h1>GARAGE PARC AUTO</h1>
 <p>Suivi des révisions et contrôles techniques</p>
 
@@ -105,7 +103,11 @@ label { display: block; margin-top: 8px; }
 </section>
 
 <section id="gestion" hidden>
-  <h2>Ajouter un véhicule</h2>
+  <h2 id="titreFormulaire">Ajouter un véhicule</h2>
+  <p id="messageModification" hidden>
+    Vous modifiez un véhicule existant.
+  </p>
+
   <form id="formulaire">
     <input name="plaque" placeholder="Immatriculation" required>
     <input name="modele" placeholder="Marque et modèle" required>
@@ -121,7 +123,13 @@ label { display: block; margin-top: 8px; }
     <input name="dernierKm" type="number" min="0" required>
 
     <label>Intervalle révision en km</label>
-    <input name="intervalle" type="number" min="1" value="15000" required>
+    <input
+      name="intervalle"
+      type="number"
+      min="1"
+      value="15000"
+      required
+    >
 
     <label>Prochaine révision</label>
     <input name="revision" type="date" required>
@@ -132,7 +140,18 @@ label { display: block; margin-top: 8px; }
     <label>Prochain contrôle pollution (facultatif)</label>
     <input name="pollution" type="date">
 
-    <button type="submit">Enregistrer le véhicule</button>
+    <button type="submit" id="boutonEnregistrer">
+      Enregistrer le véhicule
+    </button>
+
+    <button
+      type="button"
+      id="boutonAnnuler"
+      class="annuler"
+      hidden
+    >
+      Annuler la modification
+    </button>
   </form>
 </section>
 
@@ -147,8 +166,8 @@ const SUPABASE_URL =
   "https://crqzckzfqpyeelzlsvnr.supabase.co";
 
 /*
-  Remplacez la valeur ci-dessous par votre clé
-  PUBLIQUE Supabase (sb_publishable_...).
+  Remplacer uniquement cette valeur par votre clé
+  PUBLIQUE Supabase actuelle : sb_publishable_...
   Ne jamais utiliser une clé secrète.
 */
 const SUPABASE_KEY = "sb_publishable_ZArF4GZPAzsEvm9NhCFOqw_Nc7W7K_k";
@@ -160,6 +179,7 @@ const db = window.supabase.createClient(
 
 let voitures = [];
 let chargementEnCours = false;
+let vehiculeEnModification = null;
 
 const connexion = document.getElementById("connexion");
 const gestion = document.getElementById("gestion");
@@ -167,6 +187,11 @@ const tableauDeBord = document.getElementById("tableauDeBord");
 const reinitialisation = document.getElementById("reinitialisation");
 const deconnexion = document.getElementById("deconnexion");
 const messageTableau = document.getElementById("messageTableau");
+const formulaire = document.getElementById("formulaire");
+const boutonEnregistrer =
+  document.getElementById("boutonEnregistrer");
+const boutonAnnuler =
+  document.getElementById("boutonAnnuler");
 
 function jours(date) {
   if (!date) return null;
@@ -201,6 +226,53 @@ function formatDate(date) {
   const [a, m, j] = date.split("-");
   return `${j}/${m}/${a}`;
 }
+
+function reinitialiserFormulaire() {
+  vehiculeEnModification = null;
+  formulaire.reset();
+
+  document.getElementById("titreFormulaire").textContent =
+    "Ajouter un véhicule";
+
+  document.getElementById("messageModification").hidden = true;
+
+  boutonEnregistrer.textContent = "Enregistrer le véhicule";
+  boutonAnnuler.hidden = true;
+}
+
+function modifierVehicule(v) {
+  vehiculeEnModification = v.id;
+
+  formulaire.elements["plaque"].value = v.plaque || "";
+  formulaire.elements["modele"].value = v.modele || "";
+  formulaire.elements["service"].value = v.service || "";
+  formulaire.elements["km"].value = v.km ?? "";
+  formulaire.elements["derniere"].value = v.derniere || "";
+  formulaire.elements["dernierKm"].value = v.dernierKm ?? "";
+  formulaire.elements["intervalle"].value = v.intervalle ?? "";
+  formulaire.elements["revision"].value = v.revision || "";
+  formulaire.elements["ct"].value = v.ct || "";
+  formulaire.elements["pollution"].value = v.pollution || "";
+
+  document.getElementById("titreFormulaire").textContent =
+    "Modifier le véhicule " + v.plaque;
+
+  document.getElementById("messageModification").hidden = false;
+
+  boutonEnregistrer.textContent =
+    "Enregistrer les modifications";
+
+  boutonAnnuler.hidden = false;
+
+  document.body.classList.remove("tv");
+
+  gestion.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+boutonAnnuler.onclick = reinitialiserFormulaire;
 
 async function chargerVehiculesSupabase() {
   if (chargementEnCours) return;
@@ -324,51 +396,61 @@ function afficher() {
       ligne("Suivi kilométrique : non renseigné", "warning");
     }
 
-    if (!document.body.classList.contains("tv")) {
-      const bouton = document.createElement("button");
-      bouton.type = "button";
-      bouton.textContent = "Supprimer définitivement";
+    const actions = document.createElement("div");
+    actions.className = "actions";
 
-      bouton.onclick = async () => {
-        if (!confirm(
-          "ATTENTION : supprimer définitivement le véhicule " +
-          v.plaque +
-          " de Supabase ? Cette action est irréversible."
-        )) {
-          return;
+    const boutonModifier = document.createElement("button");
+    boutonModifier.type = "button";
+    boutonModifier.textContent = "Modifier le véhicule";
+    boutonModifier.onclick = () => modifierVehicule(v);
+    actions.appendChild(boutonModifier);
+
+    const boutonSupprimer = document.createElement("button");
+    boutonSupprimer.type = "button";
+    boutonSupprimer.className = "supprimer";
+    boutonSupprimer.textContent = "Supprimer définitivement";
+
+    boutonSupprimer.onclick = async () => {
+      if (!confirm(
+        "ATTENTION : supprimer définitivement le véhicule " +
+        v.plaque +
+        " de Supabase ? Cette action est irréversible."
+      )) {
+        return;
+      }
+
+      boutonSupprimer.disabled = true;
+      boutonSupprimer.textContent = "Suppression en cours...";
+
+      try {
+        const { error } = await db.rpc(
+          "admin_supprimer_vehicule",
+          { p_id: v.id }
+        );
+
+        if (error) throw error;
+
+        if (vehiculeEnModification === v.id) {
+          reinitialiserFormulaire();
         }
 
-        bouton.disabled = true;
-        bouton.textContent = "Suppression en cours...";
+        await chargerVehiculesSupabase();
 
-        try {
-          const { error } = await db.rpc(
-            "admin_supprimer_vehicule",
-            { p_id: v.id }
-          );
+        alert(
+          "Demande de suppression effectuée. " +
+          "Vérifiez que le véhicule a disparu du tableau."
+        );
 
-          if (error) throw error;
+      } catch (error) {
+        alert("Suppression impossible : " + error.message);
+      } finally {
+        boutonSupprimer.disabled = false;
+        boutonSupprimer.textContent = "Supprimer définitivement";
+      }
+    };
 
-          await chargerVehiculesSupabase();
-
-          alert(
-            "Demande de suppression effectuée. " +
-            "Vérifiez que le véhicule a disparu du tableau."
-          );
-
-        } catch (error) {
-          alert(
-            "Suppression impossible : " + error.message
-          );
-        } finally {
-          bouton.disabled = false;
-          bouton.textContent = "Supprimer définitivement";
-        }
-      };
-
-      carte.appendChild(bouton);
-    }
-
+    actions.appendChild(boutonSupprimer);
+    carte.appendChild(actions);
     liste.appendChild(carte);
   });
 }
@@ -388,6 +470,7 @@ async function verifierConnexion() {
     await chargerVehiculesSupabase();
   } else {
     voitures = [];
+    reinitialiserFormulaire();
     document.getElementById("liste").replaceChildren();
   }
 }
@@ -436,6 +519,7 @@ deconnexion.onclick = async () => {
   }
 
   voitures = [];
+  reinitialiserFormulaire();
   await verifierConnexion();
 };
 
@@ -479,75 +563,79 @@ db.auth.onAuthStateChange(event => {
   }
 });
 
-document.getElementById("formulaire").onsubmit =
-  async e => {
-    e.preventDefault();
+formulaire.onsubmit = async e => {
+  e.preventDefault();
 
-    const formulaire = e.target;
-    const bouton = formulaire.querySelector(
-      'button[type="submit"]'
-    );
+  const v = Object.fromEntries(
+    new FormData(formulaire).entries()
+  );
 
-    const v = Object.fromEntries(
-      new FormData(formulaire).entries()
-    );
+  v.plaque = v.plaque.trim().toUpperCase();
 
-    v.plaque = v.plaque.trim().toUpperCase();
+  if (Number(v.dernierKm) > Number(v.km)) {
+    alert("Vérifiez le kilométrage de la dernière révision.");
+    return;
+  }
 
-    if (Number(v.dernierKm) > Number(v.km)) {
-      alert(
-        "Vérifiez le kilométrage de la dernière révision."
-      );
-      return;
-    }
+  if (voitures.some(x =>
+    x.plaque.toUpperCase() === v.plaque &&
+    x.id !== vehiculeEnModification
+  )) {
+    alert("Cette immatriculation existe déjà.");
+    return;
+  }
 
-    if (voitures.some(
-      x => x.plaque.toUpperCase() === v.plaque
-    )) {
-      alert("Cette immatriculation existe déjà.");
-      return;
-    }
+  boutonEnregistrer.disabled = true;
+  boutonEnregistrer.textContent = "Enregistrement en cours...";
 
-    bouton.disabled = true;
-    bouton.textContent = "Enregistrement en cours...";
-
-    try {
-      const { error } = await db.rpc(
-        "admin_ajouter_vehicule",
-        {
-          p_immatriculation: v.plaque,
-          p_modele: v.modele,
-          p_service: v.service,
-          p_kilometrage_actuel: Number(v.km),
-          p_date_derniere_revision: v.derniere || null,
-          p_kilometrage_derniere_revision:
-            v.dernierKm ? Number(v.dernierKm) : null,
-          p_intervalle_revision_km:
-            v.intervalle ? Number(v.intervalle) : null,
-          p_date_prochaine_revision: v.revision || null,
-          p_date_prochain_controle_technique: v.ct || null,
-          p_date_prochain_controle_pollution:
-            v.pollution || null
-        }
-      );
-
-      if (error) throw error;
-
-      formulaire.reset();
-
-      await chargerVehiculesSupabase();
-
-      alert("Véhicule enregistré dans Supabase !");
-
-    } catch (error) {
-      alert(
-        "Enregistrement impossible : " + error.message
-      );
-    } finally {
-      bouton.disabled = false;
-      bouton.textContent = "Enregistrer le véhicule";
-    }
+  const donnees = {
+    p_immatriculation: v.plaque,
+    p_modele: v.modele,
+    p_service: v.service,
+    p_kilometrage_actuel: Number(v.km),
+    p_date_derniere_revision: v.derniere || null,
+    p_kilometrage_derniere_revision:
+      v.dernierKm ? Number(v.dernierKm) : null,
+    p_intervalle_revision_km:
+      v.intervalle ? Number(v.intervalle) : null,
+    p_date_prochaine_revision: v.revision || null,
+    p_date_prochain_controle_technique: v.ct || null,
+    p_date_prochain_controle_pollution:
+      v.pollution || null
   };
+
+  const modification = vehiculeEnModification !== null;
+
+  try {
+    const { error } = modification
+      ? await db.rpc("admin_modifier_vehicule", {
+          p_id: vehiculeEnModification,
+          ...donnees
+        })
+      : await db.rpc("admin_ajouter_vehicule", donnees);
+
+    if (error) throw error;
+
+    reinitialiserFormulaire();
+    await chargerVehiculesSupabase();
+
+    alert(
+      modification
+        ? "Modifications enregistrées dans Supabase !"
+        : "Véhicule enregistré dans Supabase !"
+    );
+
+  } catch (error) {
+    alert("Enregistrement impossible : " + error.message);
+  } finally {
+    boutonEnregistrer.disabled = false;
+
+    boutonEnregistrer.textContent =
+      vehiculeEnModification !== null
+        ? "Enregistrer les modifications"
+        : "Enregistrer le véhicule";
+  }
+};
 
 function modeTV() {
   document.body.classList.toggle("tv");
