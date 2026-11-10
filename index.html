@@ -126,8 +126,11 @@ label { display: block; margin-top: 8px; }
     <label>Prochaine révision</label>
     <input name="revision" type="date" required>
 
-    <label>Prochain contrôle technique</label>
+    <label>Prochain contrôle technique complet</label>
     <input name="ct" type="date" required>
+
+    <label>Prochain contrôle pollution (facultatif)</label>
+    <input name="pollution" type="date">
 
     <button type="submit">Enregistrer le véhicule</button>
   </form>
@@ -144,9 +147,9 @@ const SUPABASE_URL =
   "https://crqzckzfqpyeelzlsvnr.supabase.co";
 
 /*
-  REMPLACER LA VALEUR CI-DESSOUS PAR VOTRE
-  CLÉ PUBLIQUE SUPABASE ACTUELLE.
-  Elle commence par sb_publishable_
+  Remplacez la valeur ci-dessous par votre clé
+  PUBLIQUE Supabase (sb_publishable_...).
+  Ne jamais utiliser une clé secrète.
 */
 const SUPABASE_KEY = "sb_publishable_ZArF4GZPAzsEvm9NhCFOqw_Nc7W7K_k";
 
@@ -223,7 +226,8 @@ async function chargerVehiculesSupabase() {
       dernierKm: v.kilometrage_derniere_revision,
       intervalle: v.intervalle_revision_km,
       revision: v.date_prochaine_revision,
-      ct: v.date_prochain_controle_technique
+      ct: v.date_prochain_controle_technique,
+      pollution: v.date_prochain_controle_pollution
     }));
 
     messageTableau.textContent = "";
@@ -251,6 +255,7 @@ function afficher() {
   voitures.forEach(v => {
     const rev = alerte(v.revision);
     const ct = alerte(v.ct);
+    const pollution = alerte(v.pollution);
 
     const carte = document.createElement("div");
     carte.className = "vehicle";
@@ -277,10 +282,20 @@ function afficher() {
     );
 
     ligne(
-      "Contrôle technique : " + formatDate(v.ct) +
-      " — " + ct[0],
+      "Contrôle technique complet : " +
+      formatDate(v.ct) + " — " + ct[0],
       ct[1]
     );
+
+    if (v.pollution) {
+      ligne(
+        "Contrôle pollution : " +
+        formatDate(v.pollution) + " — " + pollution[0],
+        pollution[1]
+      );
+    } else {
+      ligne("Contrôle pollution : Non renseigné");
+    }
 
     if (
       v.dernierKm !== null &&
@@ -510,7 +525,9 @@ document.getElementById("formulaire").onsubmit =
           p_intervalle_revision_km:
             v.intervalle ? Number(v.intervalle) : null,
           p_date_prochaine_revision: v.revision || null,
-          p_date_prochain_controle_technique: v.ct || null
+          p_date_prochain_controle_technique: v.ct || null,
+          p_date_prochain_controle_pollution:
+            v.pollution || null
         }
       );
 
