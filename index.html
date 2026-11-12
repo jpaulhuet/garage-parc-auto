@@ -54,6 +54,7 @@ label { display: block; margin-top: 8px; }
 .tv .actions { display: none !important; }
 .tv { font-size: 22px; }
 #messageTableau { color: #ffd166; }
+#profilUtilisateur { color: #75e6a4; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
@@ -64,6 +65,7 @@ label { display: block; margin-top: 8px; }
 
 <button type="button" onclick="modeTV()">Mode TV / Gestion</button>
 <button type="button" id="deconnexion" hidden>Se déconnecter</button>
+<p id="profilUtilisateur"></p>
 
 <section id="reinitialisation" hidden>
   <h2>Choisir un nouveau mot de passe</h2>
@@ -109,9 +111,11 @@ label { display: block; margin-top: 8px; }
   </p>
 
   <form id="formulaire">
-    <input name="plaque" placeholder="Immatriculation" required>
-    <input name="modele" placeholder="Marque et modèle" required>
-    <input name="service" placeholder="Service d'appartenance" required>
+    <div id="champsIdentite">
+      <input name="plaque" placeholder="Immatriculation" required>
+      <input name="modele" placeholder="Marque et modèle" required>
+      <input name="service" placeholder="Service d'appartenance" required>
+    </div>
 
     <label>Kilométrage actuel</label>
     <input name="km" type="number" min="0" required>
@@ -166,9 +170,9 @@ const SUPABASE_URL =
   "https://crqzckzfqpyeelzlsvnr.supabase.co";
 
 /*
-  Remplacer uniquement cette valeur par votre clé
-  PUBLIQUE Supabase actuelle : sb_publishable_...
-  Ne jamais utiliser une clé secrète.
+  Remplacer cette valeur par votre clé PUBLIQUE Supabase.
+  Elle commence par sb_publishable_...
+  Ne jamais utiliser une clé secrète ou service_role.
 */
 const SUPABASE_KEY = "sb_publishable_ZArF4GZPAzsEvm9NhCFOqw_Nc7W7K_k";
 
@@ -180,6 +184,7 @@ const db = window.supabase.createClient(
 let voitures = [];
 let chargementEnCours = false;
 let vehiculeEnModification = null;
+let estAdmin = false;
 
 const connexion = document.getElementById("connexion");
 const gestion = document.getElementById("gestion");
@@ -192,6 +197,10 @@ const boutonEnregistrer =
   document.getElementById("boutonEnregistrer");
 const boutonAnnuler =
   document.getElementById("boutonAnnuler");
+const profilUtilisateur =
+  document.getElementById("profilUtilisateur");
+const champsIdentite =
+  document.getElementById("champsIdentite");
 
 function jours(date) {
   if (!date) return null;
@@ -238,6 +247,9 @@ function reinitialiserFormulaire() {
 
   boutonEnregistrer.textContent = "Enregistrer le véhicule";
   boutonAnnuler.hidden = true;
+
+  champsIdentite.hidden = !estAdmin;
+  gestion.hidden = !estAdmin;
 }
 
 function modifierVehicule(v) {
@@ -263,6 +275,8 @@ function modifierVehicule(v) {
     "Enregistrer les modifications";
 
   boutonAnnuler.hidden = false;
+  champsIdentite.hidden = !estAdmin;
+  gestion.hidden = false;
 
   document.body.classList.remove("tv");
 
@@ -401,55 +415,61 @@ function afficher() {
 
     const boutonModifier = document.createElement("button");
     boutonModifier.type = "button";
-    boutonModifier.textContent = "Modifier le véhicule";
+    boutonModifier.textContent = estAdmin
+      ? "Modifier le véhicule"
+      : "Modifier kilométrages et dates";
+
     boutonModifier.onclick = () => modifierVehicule(v);
     actions.appendChild(boutonModifier);
 
-    const boutonSupprimer = document.createElement("button");
-    boutonSupprimer.type = "button";
-    boutonSupprimer.className = "supprimer";
-    boutonSupprimer.textContent = "Supprimer définitivement";
+    if (estAdmin) {
+      const boutonSupprimer = document.createElement("button");
+      boutonSupprimer.type = "button";
+      boutonSupprimer.className = "supprimer";
+      boutonSupprimer.textContent = "Supprimer définitivement";
 
-    boutonSupprimer.onclick = async () => {
-      if (!confirm(
-        "ATTENTION : supprimer définitivement le véhicule " +
-        v.plaque +
-        " de Supabase ? Cette action est irréversible."
-      )) {
-        return;
-      }
-
-      boutonSupprimer.disabled = true;
-      boutonSupprimer.textContent = "Suppression en cours...";
-
-      try {
-        const { error } = await db.rpc(
-          "admin_supprimer_vehicule",
-          { p_id: v.id }
-        );
-
-        if (error) throw error;
-
-        if (vehiculeEnModification === v.id) {
-          reinitialiserFormulaire();
+      boutonSupprimer.onclick = async () => {
+        if (!confirm(
+          "ATTENTION : supprimer définitivement le véhicule " +
+          v.plaque +
+          " de Supabase ? Cette action est irréversible."
+        )) {
+          return;
         }
 
-        await chargerVehiculesSupabase();
+        boutonSupprimer.disabled = true;
+        boutonSupprimer.textContent = "Suppression en cours...";
 
-        alert(
-          "Demande de suppression effectuée. " +
-          "Vérifiez que le véhicule a disparu du tableau."
-        );
+        try {
+          const { error } = await db.rpc(
+            "admin_supprimer_vehicule",
+            { p_id: v.id }
+          );
 
-      } catch (error) {
-        alert("Suppression impossible : " + error.message);
-      } finally {
-        boutonSupprimer.disabled = false;
-        boutonSupprimer.textContent = "Supprimer définitivement";
-      }
-    };
+          if (error) throw error;
 
-    actions.appendChild(boutonSupprimer);
+          if (vehiculeEnModification === v.id) {
+            reinitialiserFormulaire();
+          }
+
+          await chargerVehiculesSupabase();
+
+          alert(
+            "Demande de suppression effectuée. " +
+            "Vérifiez que le véhicule a disparu du tableau."
+          );
+
+        } catch (error) {
+          alert("Suppression impossible : " + error.message);
+        } finally {
+          boutonSupprimer.disabled = false;
+          boutonSupprimer.textContent = "Supprimer définitivement";
+        }
+      };
+
+      actions.appendChild(boutonSupprimer);
+    }
+
     carte.appendChild(actions);
     liste.appendChild(carte);
   });
@@ -462,14 +482,36 @@ async function verifierConnexion() {
   const connecte = !error && !!data.user;
 
   connexion.hidden = connecte;
-  gestion.hidden = !connecte;
   tableauDeBord.hidden = !connecte;
   deconnexion.hidden = !connecte;
 
   if (connecte) {
+    const resultat = await db.rpc("est_administrateur");
+
+    if (resultat.error) {
+      estAdmin = false;
+      gestion.hidden = true;
+      tableauDeBord.hidden = true;
+      profilUtilisateur.textContent =
+        "Impossible de vérifier les droits : " +
+        resultat.error.message;
+      return;
+    }
+
+    estAdmin = resultat.data === true;
+
+    profilUtilisateur.textContent = estAdmin
+      ? "Profil : Administrateur"
+      : "Profil : Utilisateur standard";
+
+    reinitialiserFormulaire();
     await chargerVehiculesSupabase();
+
   } else {
+    estAdmin = false;
     voitures = [];
+    gestion.hidden = true;
+    profilUtilisateur.textContent = "";
     reinitialiserFormulaire();
     document.getElementById("liste").replaceChildren();
   }
@@ -519,6 +561,7 @@ deconnexion.onclick = async () => {
   }
 
   voitures = [];
+  estAdmin = false;
   reinitialiserFormulaire();
   await verifierConnexion();
 };
@@ -577,7 +620,14 @@ formulaire.onsubmit = async e => {
     return;
   }
 
-  if (voitures.some(x =>
+  const modification = vehiculeEnModification !== null;
+
+  if (!estAdmin && !modification) {
+    alert("Seul un administrateur peut ajouter un véhicule.");
+    return;
+  }
+
+  if (estAdmin && voitures.some(x =>
     x.plaque.toUpperCase() === v.plaque &&
     x.id !== vehiculeEnModification
   )) {
@@ -588,7 +638,7 @@ formulaire.onsubmit = async e => {
   boutonEnregistrer.disabled = true;
   boutonEnregistrer.textContent = "Enregistrement en cours...";
 
-  const donnees = {
+  const donneesAdmin = {
     p_immatriculation: v.plaque,
     p_modele: v.modele,
     p_service: v.service,
@@ -604,17 +654,40 @@ formulaire.onsubmit = async e => {
       v.pollution || null
   };
 
-  const modification = vehiculeEnModification !== null;
+  const donneesStandard = {
+    kilometrage_actuel: Number(v.km),
+    date_derniere_revision: v.derniere || null,
+    kilometrage_derniere_revision:
+      v.dernierKm ? Number(v.dernierKm) : null,
+    intervalle_revision_km:
+      v.intervalle ? Number(v.intervalle) : null,
+    date_prochaine_revision: v.revision || null,
+    date_prochain_controle_technique: v.ct || null,
+    date_prochain_controle_pollution:
+      v.pollution || null
+  };
 
   try {
-    const { error } = modification
-      ? await db.rpc("admin_modifier_vehicule", {
-          p_id: vehiculeEnModification,
-          ...donnees
-        })
-      : await db.rpc("admin_ajouter_vehicule", donnees);
+    let resultat;
 
-    if (error) throw error;
+    if (estAdmin) {
+      resultat = modification
+        ? await db.rpc("admin_modifier_vehicule", {
+            p_id: vehiculeEnModification,
+            ...donneesAdmin
+          })
+        : await db.rpc("admin_ajouter_vehicule", donneesAdmin);
+
+    } else {
+      resultat = await db
+        .from("vehicules")
+        .update(donneesStandard)
+        .eq("id", vehiculeEnModification)
+        .select("id")
+        .single();
+    }
+
+    if (resultat.error) throw resultat.error;
 
     reinitialiserFormulaire();
     await chargerVehiculesSupabase();
